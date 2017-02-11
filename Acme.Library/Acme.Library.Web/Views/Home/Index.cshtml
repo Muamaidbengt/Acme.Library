@@ -1,0 +1,168 @@
+﻿<div class="jumbotron">
+    <h1>Welcome to the ACME Library</h1>
+</div>
+<div class="row">
+    <div class="col-md-5 well well-lg">
+        <h2>Current inventory</h2>
+        <div id="current-inventory" class="list-group"></div>
+    </div>
+    <div class="col-md-2"></div>
+    <div class="col-md-5 well well-lg">
+        <h2>Current loans</h2>
+        <div id="current-loans" class="list-group"></div>
+    </div>
+</div>
+<div class="row">
+    <div class="add-book col-md-5 well well-lg ">
+        <form>
+            <h3>Add book</h3>
+            <fieldset class="form-group row">
+                <label for="book-title" class="col-form-label">Title</label>
+                <input type="text" id="book-title" value="It" class="form-control" />
+            </fieldset>
+            <fieldset class="form-group row">
+                <label for="author-firstname" class="col-form-label">Author (first name)</label>
+                <input type="text" id="author-firstname" value="Stephen" class="form-control" />
+            </fieldset>
+            <fieldset class="form-group row">
+                <label for="author-lastname" class="col-form-label">Author (last name)</label>
+                <input type="text" id="author-lastname" value="King" class="form-control" />
+            </fieldset>
+            <fieldset class="form-group row">
+                <label for="book-publishedyear" class="col-form-label">Published year</label>
+                <input type="number" value="1986" class="form-control" />
+            </fieldset>
+            <input type="button" class="btn" id="addbook" value="Add" />
+        </form>
+    </div>
+
+    <div class="loan-book modal fade" id="loan-book-modal" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form>
+                    <div class="modal-header">
+                        <h3>Loan book</h3>
+                    </div>
+                    <div class="modal-body">
+                        <fieldset class="form-group row">
+                            <label for="loaner-firstname" class="col-form-label">Loaner (first name)</label>
+                            <input type="text" id="loaner-firstname" value="John" class="form-control" />
+                        </fieldset>
+                        <fieldset class="form-group row">
+                            <label for="loaner-lastname" class="col-form-label">Loaner (last name)</label>
+                            <input type="text" id="loaner-lastname" value="Doe" class="form-control" />
+                        </fieldset>
+                    </div>
+                    <div class="modal-footer">
+                        <input type="hidden" id="book-id" value="-1" />
+                        <button type="button" class="btn btn-default" data-dismiss="modal" id="btn-loan-book">Loan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+</div>
+<script>
+var booksUri = "@Url.HttpRouteUrl("DefaultApi", new { controller = "Books" })",
+    loansUri = "@Url.HttpRouteUrl("DefaultApi", new { controller = "Loans" })",
+    spinner = "<i class=\"fa fa-circle-o-notch fa-spin\" style=\"font-size:24px\"></i>";
+
+
+$(document).ready(function () {
+    var formatBook = function (book) {
+        return "<i>" + book.Title + "</i> by " + book.AuthorName + " <input type=\"button\" class=\"btn btn-delete-book\" data-book-id=\"" + book.Id + "\" value=\"Delete\"/><input type=\"button\" class=\"btn btn-loan-book\" data-toggle=\"modal\" data-target=\"#loan-book-modal\" data-book-id=\"" + book.Id + "\" value=\"Loan\"/>";
+    },
+    formatLoan = function (loan) {
+        return "<i>" + loan.BookTitle + "</i> is loaned to " + loan.LoanerName + " (expires on " + new Date(loan.ExpiryDate).toDateString() + ")<input type=\"button\" class=\"btn btn-delete-loan\" data-loan-id=\"" + loan.Id + "\" value=\"Return\"/>";
+    },
+    refreshInventory = function () {
+        $("#current-loans").html(spinner);
+        $.getJSON(booksUri).done(function (books) {
+            var currentInventory = $("#current-inventory").html("");
+            $.each(books, function (key, book) {
+            $("<div class=\"list-group-item\">" + formatBook(book) + "</div>")
+                .appendTo(currentInventory);
+            });
+        });
+    },
+    refreshLoans = function () {
+        $("#current-loans").html(spinner);
+        $.getJSON(loansUri).done(function (loans) {
+            var currentLoans = $("#current-loans").html("");
+            $.each(loans, function (key, loan) {
+                $("<div class=\"list-group-item\">" + formatLoan(loan) + "</div>")
+                    .appendTo(currentLoans);
+            });
+        });
+    };
+
+    $("#current-inventory").on("click", ".btn-delete-book", function () {
+        var bookId = $(this).attr("data-book-id");
+        $.ajax({
+            "method": "DELETE",
+            "url": booksUri + "/" + bookId,
+            "success": function (data) {
+                refreshInventory();
+            }
+        });
+    });
+    $("#current-inventory").on("click", ".btn-loan-book", function () {
+        var bookId = $(this).attr("data-book-id");
+        $("#book-id").val(bookId);
+    });
+
+    $("#btn-loan-book").click(function () {
+
+        var loanerFirstName = $("#loaner-firstname").val(),
+            loanerLastName = $("#loaner-lastname").val(),
+            bookId = $("#book-id").val();
+
+        $.ajax({
+            "method": "POST",
+            "data": {
+                "LoanerFirstName": loanerFirstName,
+                "LoanerLastName": loanerLastName,
+                "BookId": bookId
+            },
+            "url": loansUri,
+            "success": function (data) {
+                refreshLoans();
+            }
+        });
+    });
+
+
+    $("#current-loans").on("click", ".btn-delete-loan", function () {
+        var loanId = $(this).attr("data-loan-id");
+        $.ajax({
+            "method": "DELETE",
+            "url": loansUri + "/" + loanId,
+            "success": function (data) {
+                refreshLoans();
+            }
+        });
+    });
+
+    $("#addbook").click(function () {
+        var title = $("#book-title").val(),
+        firstname = $("#author-firstname").val(),
+        lastname = $("#author-lastname").val(),
+        publishedYear = $("#book-publishedyear").val(),
+        book = { "AuthorFirstName": firstname, "AuthorLastName": lastname, "Title": title, "PublishedYear": publishedYear };
+        $.post(booksUri, book, function (data) {
+            refreshInventory();
+        })
+    });
+
+    $(document).bind("ajaxError", function (evt, data) {
+        if (data)
+        {
+            alert(data.statusText);
+        }
+    });
+
+    refreshInventory();
+    refreshLoans();
+});
+</script>
