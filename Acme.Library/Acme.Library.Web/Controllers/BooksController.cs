@@ -67,7 +67,7 @@ namespace Acme.Library.Controllers
 				_books.Authors.Add(author);
 			}
 
-			var newBook = new Book { Author = author, Title = book.Title };
+			var newBook = new Book { Author = author, Title = book.Title, Isbn = book.Isbn };
 			_books.Books.Add(newBook);
 			_books.SaveChanges();
 			return Ok();

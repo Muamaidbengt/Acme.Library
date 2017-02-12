@@ -17,16 +17,25 @@
         <form>
             <h3>Add book</h3>
             <fieldset class="form-group row">
+                <label for="book-isbn" class="col-form-label">Isbn</label>
+                <div class="input-group">
+                    <input type="text" id="book-isbn" class="form-control" placeholder="Isbn10 or Isbn13">
+                    <div class="input-group-btn">
+                        <a class="btn btn-default" id="btn-isbn-search"><i class="glyphicon glyphicon-search"></i></a>
+                    </div>
+                </div>
+            </fieldset>
+            <fieldset class="form-group row">
                 <label for="book-title" class="col-form-label">Title</label>
-                <input type="text" id="book-title" value="It" class="form-control" />
+                <input type="text" id="book-title" placeholder="The book's title'" class="form-control" />
             </fieldset>
             <fieldset class="form-group row">
                 <label for="author-firstname" class="col-form-label">Author (first name)</label>
-                <input type="text" id="author-firstname" value="Stephen" class="form-control" />
+                <input type="text" id="author-firstname" class="form-control" />
             </fieldset>
             <fieldset class="form-group row">
                 <label for="author-lastname" class="col-form-label">Author (last name)</label>
-                <input type="text" id="author-lastname" value="King" class="form-control" />
+                <input type="text" id="author-lastname" class="form-control" />
             </fieldset>
             <fieldset class="form-group row">
                 <label for="book-publishedyear" class="col-form-label">Published year</label>
@@ -76,6 +85,32 @@ $(document).ready(function () {
     formatLoan = function (loan) {
         return "<i>" + loan.BookTitle + "</i> is loaned to " + loan.LoanerName + " (expires on " + new Date(loan.ExpiryDate).toDateString() + ")<input type=\"button\" class=\"btn btn-delete-loan\" data-loan-id=\"" + loan.Id + "\" value=\"Return\"/>";
     },
+    lookUpByIsbn = function (isbn) {
+        var isbnApiKey = "CK5Y3301",
+        isbnUri = "https://crossorigin.me/http://isbndb.com/api/v2/json/" + isbnApiKey + "/book/" + isbn;
+        $.ajax({
+            "url": isbnUri,
+            "type": "GET",
+            "dataType": "json",
+            "success": function (response) {
+                if (response == null || response.data == null || response.data[0] == null)
+                    return;
+                var book = response.data[0];
+                if (book.author_data != null)
+                {
+                    var author = book.author_data[0];
+                    if (author != null && author.name != null && author.name.indexOf(",") > -1) {
+                        var names = author.name.split(","),
+                            firstname = names[0],
+                            lastname = names[1];
+                        $("#author-firstname").val(firstname);
+                        $("#author-lastname").val(lastname);
+                    }
+                }
+                $("#book-title").val(book.title);
+            }
+        });
+    },
     refreshInventory = function () {
         $("#current-loans").html(spinner);
         $.getJSON(booksUri).done(function (books) {
@@ -96,7 +131,13 @@ $(document).ready(function () {
             });
         });
     };
-
+    $("#btn-isbn-search").click(function() {
+        var isbn = $("#book-isbn").val(),
+           isbnLength = isbn.length;
+        if (isbnLength != 10 && isbnLength != 13)
+            return; // Doesn't look like ISBN10 or ISBN13
+        lookUpByIsbn(isbn);
+    }),
     $("#current-inventory").on("click", ".btn-delete-book", function () {
         var bookId = $(this).attr("data-book-id");
         $.ajax({
